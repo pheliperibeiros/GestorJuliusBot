@@ -329,11 +329,10 @@ async def listar_categorias(update: Update, context: CallbackContext) -> None:
         )
     await update.message.reply_text(response, parse_mode="Markdown")
 # Cria um servidor FastAPI mínimo (só para o Render detectar a porta)
-web_app = FastAPI()
-
-@web_app.get("/")
+@web_app.get("/", status_code=200)
+@web_app.head("/", status_code=200)  # ← Adiciona suporte a HEAD
 def status():
-    return {"status": "Bot do Telegram em funcionamento!"}
+    return {"status": "Bot online!"}
     
 def main():
     """Inicia o bot."""
