@@ -18,6 +18,14 @@ from telegram.ext import (
 )
 from dotenv import load_dotenv
 
+# Cria a instância do FastAPI (deve vir logo após os imports)
+web_app = FastAPI()
+
+@web_app.get("/", status_code=200)
+@web_app.head("/", status_code=200)
+def status():
+    return {"status": "Bot online!"}
+
 # Carrega variáveis de ambiente
 load_dotenv()
 
@@ -328,12 +336,7 @@ async def listar_categorias(update: Update, context: CallbackContext) -> None:
             f"Limite: R$ {dados['limite']:.2f}\n\n"
         )
     await update.message.reply_text(response, parse_mode="Markdown")
-# Cria um servidor FastAPI mínimo (só para o Render detectar a porta)
-@web_app.get("/", status_code=200)
-@web_app.head("/", status_code=200)  # ← Adiciona suporte a HEAD
-def status():
-    return {"status": "Bot online!"}
-    
+
 def main():
     """Inicia o bot."""
     if not TOKEN:
@@ -344,10 +347,10 @@ def main():
         print("Erro: Não foi possível conectar ao Google Sheets!")
         return
     
-    # Configura o bot do Telegram
+    # Criar a aplicação
     app = Application.builder().token(TOKEN).build()
     
-    # Configura os handlers (seu código existente)
+    # Configurar handlers
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("novogasto", start_novo_gasto)],
         states={
