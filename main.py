@@ -334,7 +334,8 @@ web_app = FastAPI()
 @web_app.get("/")
 def status():
     return {"status": "Bot do Telegram em funcionamento!"}
-    def main():
+    
+def main():
     """Inicia o bot."""
     if not TOKEN:
         print("Erro: Token do Telegram não encontrado!")
