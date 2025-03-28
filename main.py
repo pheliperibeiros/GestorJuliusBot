@@ -3,6 +3,8 @@ import asyncio
 import gspread
 import json
 import os
+from fastapi import FastAPI
+import uvicorn
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 from telegram import Update, ReplyKeyboardMarkup
@@ -326,8 +328,13 @@ async def listar_categorias(update: Update, context: CallbackContext) -> None:
             f"Limite: R$ {dados['limite']:.2f}\n\n"
         )
     await update.message.reply_text(response, parse_mode="Markdown")
+# Cria um servidor FastAPI mínimo (só para o Render detectar a porta)
+web_app = FastAPI()
 
-def main():
+@web_app.get("/")
+def status():
+    return {"status": "Bot do Telegram em funcionamento!"}
+    def main():
     """Inicia o bot."""
     if not TOKEN:
         print("Erro: Token do Telegram não encontrado!")
@@ -337,10 +344,10 @@ def main():
         print("Erro: Não foi possível conectar ao Google Sheets!")
         return
     
-    # Criar a aplicação
+    # Configura o bot do Telegram
     app = Application.builder().token(TOKEN).build()
     
-    # Configurar handlers
+    # Configura os handlers (seu código existente)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("novogasto", start_novo_gasto)],
         states={
@@ -361,6 +368,16 @@ def main():
     
     print("Bot está rodando...")
     nest_asyncio.apply()
+    
+    # Inicia o servidor web em uma thread separada
+    import threading
+    threading.Thread(
+        target=uvicorn.run,
+        kwargs={"app": web_app, "port": 8000, "host": "0.0.0.0"},
+        daemon=True
+    ).start()
+    
+    # Inicia o bot do Telegram
     asyncio.run(app.run_polling())
 
 if __name__ == "__main__":
