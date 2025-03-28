@@ -353,7 +353,7 @@ def main():
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv_handler)
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receber_gasto_rapido))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receber_gasto_rapido))
     app.add_handler(CommandHandler("limite", configurar_limite))
     app.add_handler(CommandHandler("saldo", consultar_saldo))
     app.add_handler(CommandHandler("relatorio", gerar_relatorio))
