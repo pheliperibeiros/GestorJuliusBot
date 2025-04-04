@@ -1,8 +1,7 @@
-import nest_asyncio
 import asyncio
 import json
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 import uvicorn
 from datetime import datetime
 from telegram import Update, ReplyKeyboardMarkup
@@ -18,8 +17,54 @@ from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, db
 
+# --------------------------------------------------
+# Configuração Inicial
+# --------------------------------------------------
+load_dotenv()  # Carrega variáveis de ambiente primeiro
+
+# Configurações
+TOKEN = os.getenv('TELEGRAM_TOKEN')
+FIREBASE_CONFIG = {
+    "databaseURL": os.getenv('FIREBASE_DB_URL')
+}
+
+# Inicializa o Firebase
+def init_firebase():
+    try:
+        firebase_creds = os.getenv('FIREBASE_CREDS_JSON')
+        if not firebase_creds:
+            raise ValueError("Variável FIREBASE_CREDS_JSON não encontrada")
+            
+        cred_dict = json.loads(firebase_creds)
+        cred = credentials.Certificate(cred_dict)
+        
+        return firebase_admin.initialize_app(cred, FIREBASE_CONFIG)
+    except Exception as e:
+        print(f"Erro ao conectar ao Firebase: {str(e)}")
+        return None
+
+firebase_app = init_firebase()
+firebase_ref = db.reference() if firebase_app else None
+
+# --------------------------------------------------
 # Configuração do FastAPI
+# --------------------------------------------------
 web_app = FastAPI()
+
+@web_app.post("/webhook")
+async def telegram_webhook(request: Request):
+    """Endpoint para receber atualizações do Telegram"""
+    try:
+        # Acessa a instância do bot através do estado do FastAPI
+        telegram_app = request.app.state.telegram_app
+        
+        update_data = await request.json()
+        update = Update.de_json(update_data, telegram_app.bot)
+        await telegram_app.process_update(update)
+        return {"status": "success"}
+    except Exception as e:
+        print(f"Erro no webhook: {str(e)}")
+        return {"status": "error"}
 
 @web_app.get("/", status_code=200)
 @web_app.head("/", status_code=200)
@@ -285,11 +330,16 @@ async def main() -> None:
     if not firebase_ref:
         raise ValueError("Falha na conexão com Firebase!")
 
-    WEBHOOK_URL = "https://gestorjuliusbot.onrender.com"  # Altere para sua URL
+    # URL completa do webhook
+    WEBHOOK_URL = "https://gestorjuliusbot.onrender.com/webhook"
     
-    app = Application.builder().token(TOKEN).build()
+    # Cria aplicação do Telegram
+    telegram_app = Application.builder().token(TOKEN).build()
     
-    # Configurar handlers
+    # Armazena no estado do FastAPI
+    web_app.state.telegram_app = telegram_app
+    
+    # Configura handlers
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('novogasto', start_novo_gasto)],
         states={
@@ -300,20 +350,21 @@ async def main() -> None:
         fallbacks=[CommandHandler('cancelar', cancelar)]
     )
     
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(conv_handler)
-    app.add_handler(CommandHandler("limite", configurar_limite))
-    app.add_handler(CommandHandler("saldo", consultar_saldo))
-    app.add_handler(CommandHandler("relatorio", gerar_relatorio))
-    app.add_handler(CommandHandler("categorias", listar_categorias))
+    telegram_app.add_handler(CommandHandler("start", start))
+    telegram_app.add_handler(conv_handler)
+    telegram_app.add_handler(CommandHandler("limite", configurar_limite))
+    telegram_app.add_handler(CommandHandler("saldo", consultar_saldo))
+    telegram_app.add_handler(CommandHandler("relatorio", gerar_relatorio))
+    telegram_app.add_handler(CommandHandler("categorias", listar_categorias))
 
-    # Configurar webhook
-    await app.bot.set_webhook(
+    # Configura webhook
+    await telegram_app.bot.set_webhook(
         url=WEBHOOK_URL,
-        allowed_updates=Update.ALL_TYPES
+        allowed_updates=Update.ALL_TYPES,
+        drop_pending_updates=True
     )
 
-    # Iniciar servidor
+    # Inicia servidor
     server = uvicorn.Server(
         config=uvicorn.Config(
             app=web_app,
