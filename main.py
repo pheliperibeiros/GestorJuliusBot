@@ -65,6 +65,12 @@ firebase_ref = init_firebase()
 async def get_limite(categoria: str) -> float:
     snapshot = firebase_ref.child('limites').child(categoria).get()
     return float(snapshot) if snapshot else 0.0
+# Função Cancelar
+async def cancelar(update: Update, context: CallbackContext) -> int:
+    """Cancela a operação em andamento"""
+    await update.message.reply_text("❌ Operação cancelada com sucesso!")
+    context.user_data.clear()
+    return ConversationHandler.END
 
 # Função auxiliar para salvar limite
 async def set_limite(categoria: str, valor: float):
