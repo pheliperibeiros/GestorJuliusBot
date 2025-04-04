@@ -277,18 +277,19 @@ async def listar_categorias(update: Update, context: CallbackContext) -> None:
     resposta += "\nUse /limite para definir valores"
     await update.message.reply_text(resposta, parse_mode="Markdown")
 
-def main():
-    """Configura e inicia o bot"""
+async def main() -> None:
+    """Configura e inicia o bot com webhook"""
     if not TOKEN:
         raise ValueError("Token do Telegram não configurado!")
     
     if not firebase_ref:
         raise ValueError("Falha na conexão com Firebase!")
+
+    WEBHOOK_URL = "https://gestorjuliusbot.onrender.com"  # Altere para sua URL
     
-    # Cria aplicação
     app = Application.builder().token(TOKEN).build()
     
-    # Handlers
+    # Configurar handlers
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('novogasto', start_novo_gasto)],
         states={
@@ -305,18 +306,24 @@ def main():
     app.add_handler(CommandHandler("saldo", consultar_saldo))
     app.add_handler(CommandHandler("relatorio", gerar_relatorio))
     app.add_handler(CommandHandler("categorias", listar_categorias))
-    
-    # Inicia servidor web
-    def run_web():
-        uvicorn.run(web_app, host="0.0.0.0", port=8000)
-    
-    import threading
-    threading.Thread(target=run_web, daemon=True).start()
-    
-    # Inicia o bot
-    print("Bot iniciado!")
-    nest_asyncio.apply()
-    app.run_polling()
+
+    # Configurar webhook
+    await app.bot.set_webhook(
+        url=WEBHOOK_URL,
+        allowed_updates=Update.ALL_TYPES
+    )
+
+    # Iniciar servidor
+    server = uvicorn.Server(
+        config=uvicorn.Config(
+            app=web_app,
+            host="0.0.0.0",
+            port=8000,
+            use_colors=False
+        )
+    )
+
+    await server.serve()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
